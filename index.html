@@ -38,30 +38,28 @@ body{
   font-size:16px;
 }
 
-/* FINAL */
+/* FINAL (FIXED) */
 #final{
   position:fixed;
   inset:0;
   background:rgba(0,0,0,0.97);
   color:white;
-  padding:40px;
-  white-space:pre-wrap;
-  line-height:1.7;
-  display:none;
-}
 
-/* START BUTTON */
-#startAudio{
-  position:fixed;
-  bottom:30px;
-  left:50%;
-  transform:translateX(-50%);
-  padding:10px 18px;
-  border-radius:20px;
-  border:1px solid rgba(255,255,255,0.3);
-  background:rgba(255,255,255,0.08);
-  color:white;
-  z-index:9999;
+  display:none;
+
+  justify-content:center;
+  align-items:center;
+
+  padding:40px;
+
+  text-align:center;
+
+  white-space:pre-wrap;
+  line-height:1.8;
+
+  font-size:22px;
+  max-width:900px;
+  margin:auto;
 }
 </style>
 </head>
@@ -113,11 +111,10 @@ startAudio.addEventListener("click", async (e) => {
 
     startAudio.style.display = "none";
 
-    started = true; //  unlock everything
+    started = true;
 
-    render(); // start loop
-
-    shakeLoop(); // start shake
+    render();
+    shakeLoop();
 
   }catch(err){
     console.log("music error:", err);
@@ -163,7 +160,7 @@ function addEnergy(v){
 }
 
 /* =========================
-   INPUT (LOCKED)
+   INPUT
 ========================= */
 
 let lastScroll = 0;
@@ -186,7 +183,9 @@ window.addEventListener("wheel",(e)=>{
 let startY = null;
 
 window.addEventListener("touchstart",(e)=>{
+
   if(!started) return;
+
   startY = e.touches[0].clientY;
 });
 
@@ -312,7 +311,7 @@ I just want to appreciate you… so I don’t lose what made me feel this way.`;
 
 function showFinalScene(){
 
-  finalScreen.style.display = "block";
+  finalScreen.style.display = "flex";
   finalScreen.innerHTML = "";
 
   gsap.fromTo(finalScreen,
@@ -320,6 +319,10 @@ function showFinalScene(){
     {opacity:1,duration:2,onComplete:typeWriter}
   );
 }
+
+/* =========================
+   TYPEWRITER
+========================= */
 
 function typeWriter(){
 
