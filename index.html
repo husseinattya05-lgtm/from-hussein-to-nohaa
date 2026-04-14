@@ -12,19 +12,7 @@ body{
   overflow:hidden;
   font-family:Arial;
   background:black;
-}
-
-/* START SCREEN */
-#start{
-  position:fixed;
-  inset:0;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  background:black;
-  color:white;
-  z-index:9999;
-  font-size:18px;
+  touch-action:none;
 }
 
 /* ORB */
@@ -47,6 +35,7 @@ body{
   width:100%;
   text-align:center;
   color:white;
+  font-size:16px;
 }
 
 /* FINAL */
@@ -60,66 +49,96 @@ body{
   line-height:1.7;
   display:none;
 }
+
+/* START BUTTON */
+#startAudio{
+  position:fixed;
+  bottom:30px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:10px 18px;
+  border-radius:20px;
+  border:1px solid rgba(255,255,255,0.3);
+  background:rgba(255,255,255,0.08);
+  color:white;
+  z-index:9999;
+}
 </style>
 </head>
 
 <body>
 
-<!-- START -->
-<div id="start">Tap to start</div>
+<button id="startAudio">Start Experience</button>
 
 <div id="tutorial"></div>
 <div id="orb"></div>
 <div id="final"></div>
 
-<audio id="music" src="music.mp3"></audio>
+<audio id="music" src="music.mp3" preload="auto"></audio>
 
 <script>
 
-const startScreen = document.getElementById("start");
-const music = document.getElementById("music");
 const orb = document.getElementById("orb");
 const tutorial = document.getElementById("tutorial");
 const finalScreen = document.getElementById("final");
+const music = document.getElementById("music");
+const startAudio = document.getElementById("startAudio");
 
 /* =========================
-   START + MUSIC (FIX 100%)
+   STATE LOCK
 ========================= */
 
-startScreen.addEventListener("click", async () => {
-  try{
-    await music.play();
-    music.volume = 0.5;
-    console.log("music started");
-  }catch(e){
-    alert("   —       ");
-    console.log(e);
-  }
-
-  startScreen.style.display = "none";
-  init();
-});
-
-/* =========================
-   STATE
-========================= */
-
+let started = false;
 let targetEnergy = 0;
 let energy = 0;
 let touched = false;
+let touchUnlocked = false;
+
+/* =========================
+   MUSIC
+========================= */
+
+startAudio.addEventListener("click", async (e) => {
+
+  e.stopPropagation();
+
+  try{
+    music.volume = 0;
+    await music.play();
+
+    gsap.to(music, {
+      volume: 0.4,
+      duration: 2
+    });
+
+    startAudio.style.display = "none";
+
+    started = true; //  unlock everything
+
+    render(); // start loop
+
+    shakeLoop(); // start shake
+
+  }catch(err){
+    console.log("music error:", err);
+  }
+});
 
 /* =========================
    SHAKE
 ========================= */
 
-function shake(){
+function shakeLoop(){
+
+  if(!started) return;
+
   let intensity = (1 - energy) * 10;
 
   gsap.to(orb,{
     x:(Math.random()-0.5)*intensity,
     y:(Math.random()-0.5)*intensity,
     duration:0.25,
-    onComplete:shake
+    onComplete:shakeLoop
   });
 }
 
@@ -127,50 +146,85 @@ function shake(){
    ENERGY
 ========================= */
 
-function update(){
+function updateEnergy(){
   energy += (targetEnergy - energy) * 0.03;
 }
 
-/* =========================
-   INPUT
-========================= */
+function addEnergy(v){
 
-function input(){
+  let resistance = 1 - targetEnergy;
+  targetEnergy += v * resistance;
 
-  window.addEventListener("wheel",(e)=>{
-    if(e.deltaY < 0){
-      targetEnergy += 0.01;
-    }
-  });
+  if(targetEnergy > 0.72){
+    touchUnlocked = true;
+  }
 
-  let startY = null;
-
-  window.addEventListener("touchstart",(e)=>{
-    startY = e.touches[0].clientY;
-  });
-
-  window.addEventListener("touchmove",(e)=>{
-    let y = e.touches[0].clientY;
-    let diff = startY - y;
-
-    if(diff > 0) targetEnergy += diff * 0.0008;
-
-    startY = y;
-  });
+  targetEnergy = Math.max(0, Math.min(1, targetEnergy));
 }
 
 /* =========================
-   TOUCH
+   INPUT (LOCKED)
 ========================= */
 
-orb.addEventListener("click",()=>{
+let lastScroll = 0;
 
-  if(energy < 0.7 || touched) return;
+window.addEventListener("wheel",(e)=>{
+
+  if(!started) return;
+
+  if(e.deltaY < 0){
+
+    let now = Date.now();
+    if(now - lastScroll < 200) return;
+
+    lastScroll = now;
+
+    addEnergy(0.01);
+  }
+});
+
+let startY = null;
+
+window.addEventListener("touchstart",(e)=>{
+  if(!started) return;
+  startY = e.touches[0].clientY;
+});
+
+window.addEventListener("touchmove",(e)=>{
+
+  if(!started) return;
+
+  let y = e.touches[0].clientY;
+  let diff = startY - y;
+
+  if(diff > 0) addEnergy(diff * 0.0008);
+
+  startY = y;
+});
+
+/* =========================
+   TOUCH ACTION
+========================= */
+
+orb.addEventListener("pointerdown",(e)=>{
+
+  if(!started) return;
+
+  e.stopPropagation();
+
+  if(!touchUnlocked || touched) return;
 
   touched = true;
 
+  tutorial.innerText = "Safe";
+
+  gsap.killTweensOf(orb);
+
   orb.style.background =
     "radial-gradient(circle, #ffb347, #ff5e00)";
+
+  orb.style.boxShadow =
+    "0 0 200px rgba(255,180,71,0.9), 0 0 400px rgba(255,94,0,0.8)";
 
   gsap.to(orb,{
     scale:2,
@@ -178,11 +232,72 @@ orb.addEventListener("click",()=>{
     ease:"elastic.out(1,0.6)"
   });
 
-  setTimeout(showFinal,2000);
+  setTimeout(showFinalScene, 2000);
 });
 
 /* =========================
-   FINAL
+   TUTORIAL
+========================= */
+
+function updateTutorial(){
+
+  if(!started) return;
+  if(touched) return;
+
+  if(energy < 0.2){
+    tutorial.innerText = "It feels scared… Scroll up";
+  }
+  else if(energy < 0.4){
+    tutorial.innerText = "It notices you";
+  }
+  else if(energy < 0.6){
+    tutorial.innerText = "It adapts";
+  }
+  else if(energy < 0.72){
+    tutorial.innerText = "Almost stable";
+  }
+  else{
+    tutorial.innerText = "Touch now";
+  }
+}
+
+/* =========================
+   LOOP
+========================= */
+
+function render(){
+
+  if(!started) return;
+
+  updateEnergy();
+  updateTutorial();
+
+  let scale = 1 + energy * 0.7;
+
+  if(!touched){
+
+    let r = Math.floor(30 + energy * 220);
+    let g = Math.floor(200 + energy * 40);
+    let b = Math.floor(255 - energy * 200);
+
+    orb.style.background =
+      `radial-gradient(circle, rgb(${r},${g},${b}), #001a33)`;
+
+    orb.style.boxShadow =
+      `0 0 ${120 + energy*400}px rgba(${r},${g},${b},0.7)`;
+  }
+
+  gsap.to(orb,{
+    scale:scale,
+    duration:0.8,
+    ease:"power3.out"
+  });
+
+  requestAnimationFrame(render);
+}
+
+/* =========================
+   FINAL MESSAGE
 ========================= */
 
 const text = `Everything I felt… reacted like a person… because it was a person.
@@ -195,52 +310,39 @@ And this is the reason I made this site:
 I don’t take anything for granted.
 I just want to appreciate you… so I don’t lose what made me feel this way.`;
 
-function showFinal(){
+function showFinalScene(){
 
   finalScreen.style.display = "block";
   finalScreen.innerHTML = "";
 
+  gsap.fromTo(finalScreen,
+    {opacity:0},
+    {opacity:1,duration:2,onComplete:typeWriter}
+  );
+}
+
+function typeWriter(){
+
   let i = 0;
 
-  function type(){
+  function step(){
+
     if(i < text.length){
+
       finalScreen.innerHTML += text[i];
 
-      let delay = 35;
-      if(text[i] === ".") delay = 400;
+      let delay = 40;
+
+      if(text[i] === ".") delay = 450;
+      if(text[i] === ",") delay = 180;
+      if(text[i] === "…") delay = 600;
 
       i++;
-      setTimeout(type, delay);
+      setTimeout(step, delay);
     }
   }
 
-  type();
-}
-
-/* =========================
-   LOOP
-========================= */
-
-function render(){
-
-  update();
-
-  let scale = 1 + energy * 0.7;
-
-  orb.style.transform =
-    `translate(-50%,-50%) scale(${scale})`;
-
-  requestAnimationFrame(render);
-}
-
-/* =========================
-   INIT
-========================= */
-
-function init(){
-  shake();
-  input();
-  render();
+  step();
 }
 
 </script>
