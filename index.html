@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Emotional Orb</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+<style>
+body{
+  margin:0;
+  overflow:hidden;
+  font-family:Arial;
+  background:black;
+}
+
+/* START SCREEN */
+#start{
+  position:fixed;
+  inset:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:black;
+  color:white;
+  z-index:9999;
+  font-size:18px;
+}
+
+/* ORB */
+#orb{
+  position:fixed;
+  top:50%;
+  left:50%;
+  width:210px;
+  height:210px;
+  border-radius:50%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle, #00e5ff, #003355);
+  box-shadow:0 0 140px rgba(0,200,255,0.5);
+}
+
+/* TEXT */
+#tutorial{
+  position:fixed;
+  top:20px;
+  width:100%;
+  text-align:center;
+  color:white;
+}
+
+/* FINAL */
+#final{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.97);
+  color:white;
+  padding:40px;
+  white-space:pre-wrap;
+  line-height:1.7;
+  display:none;
+}
+</style>
+</head>
+
+<body>
+
+<!-- START -->
+<div id="start">Tap to start</div>
+
+<div id="tutorial"></div>
+<div id="orb"></div>
+<div id="final"></div>
+
+<audio id="music" src="music.mp3"></audio>
+
+<script>
+
+const startScreen = document.getElementById("start");
+const music = document.getElementById("music");
+const orb = document.getElementById("orb");
+const tutorial = document.getElementById("tutorial");
+const finalScreen = document.getElementById("final");
+
+/* =========================
+   START + MUSIC (FIX 100%)
+========================= */
+
+startScreen.addEventListener("click", async () => {
+  try{
+    await music.play();
+    music.volume = 0.5;
+    console.log("music started");
+  }catch(e){
+    alert("   —       ");
+    console.log(e);
+  }
+
+  startScreen.style.display = "none";
+  init();
+});
+
+/* =========================
+   STATE
+========================= */
+
+let targetEnergy = 0;
+let energy = 0;
+let touched = false;
+
+/* =========================
+   SHAKE
+========================= */
+
+function shake(){
+  let intensity = (1 - energy) * 10;
+
+  gsap.to(orb,{
+    x:(Math.random()-0.5)*intensity,
+    y:(Math.random()-0.5)*intensity,
+    duration:0.25,
+    onComplete:shake
+  });
+}
+
+/* =========================
+   ENERGY
+========================= */
+
+function update(){
+  energy += (targetEnergy - energy) * 0.03;
+}
+
+/* =========================
+   INPUT
+========================= */
+
+function input(){
+
+  window.addEventListener("wheel",(e)=>{
+    if(e.deltaY < 0){
+      targetEnergy += 0.01;
+    }
+  });
+
+  let startY = null;
+
+  window.addEventListener("touchstart",(e)=>{
+    startY = e.touches[0].clientY;
+  });
+
+  window.addEventListener("touchmove",(e)=>{
+    let y = e.touches[0].clientY;
+    let diff = startY - y;
+
+    if(diff > 0) targetEnergy += diff * 0.0008;
+
+    startY = y;
+  });
+}
+
+/* =========================
+   TOUCH
+========================= */
+
+orb.addEventListener("click",()=>{
+
+  if(energy < 0.7 || touched) return;
+
+  touched = true;
+
+  orb.style.background =
+    "radial-gradient(circle, #ffb347, #ff5e00)";
+
+  gsap.to(orb,{
+    scale:2,
+    duration:1.2,
+    ease:"elastic.out(1,0.6)"
+  });
+
+  setTimeout(showFinal,2000);
+});
+
+/* =========================
+   FINAL
+========================= */
+
+const text = `Everything I felt… reacted like a person… because it was a person.
+And maybe… it was me.
+This is how I always felt when you were there.
+When you were here… I was never alone in anything I went through.
+I might have gone through all of this anyway…
+but I know it wouldn’t have felt the same without you shaping how I lived it.
+And this is the reason I made this site:
+I don’t take anything for granted.
+I just want to appreciate you… so I don’t lose what made me feel this way.`;
+
+function showFinal(){
+
+  finalScreen.style.display = "block";
+  finalScreen.innerHTML = "";
+
+  let i = 0;
+
+  function type(){
+    if(i < text.length){
+      finalScreen.innerHTML += text[i];
+
+      let delay = 35;
+      if(text[i] === ".") delay = 400;
+
+      i++;
+      setTimeout(type, delay);
+    }
+  }
+
+  type();
+}
+
+/* =========================
+   LOOP
+========================= */
+
+function render(){
+
+  update();
+
+  let scale = 1 + energy * 0.7;
+
+  orb.style.transform =
+    `translate(-50%,-50%) scale(${scale})`;
+
+  requestAnimationFrame(render);
+}
+
+/* =========================
+   INIT
+========================= */
+
+function init(){
+  shake();
+  input();
+  render();
+}
+
+</script>
+
+</body>
+</html>
